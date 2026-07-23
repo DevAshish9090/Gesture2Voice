@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="docs/assets/gesture2voice-hero.png" alt="A hand with computer-vision landmarks transforming into text and speech" width="100%" />
+  <img src="docs/assets/gesture2voice-logo.png" alt="Gesture2Voice" width="600" />
 </p>
-
-<h1 align="center">Gesture2Voice</h1>
 
 <p align="center"><strong>Real-time sign gesture and fingerspelling recognition that turns hand input into text and speech.</strong></p>
 
