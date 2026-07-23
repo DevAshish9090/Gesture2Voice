@@ -294,7 +294,7 @@ def _fs_handle_confirmed(label): #label -> predicted letter
             fs_state['last_action'] = label
             fs_state['letter_history'].clear()
             return {
-                'action':   's  fg  e4refdffpace',
+                'action':   'space',
                 'word':     word,
                 'sentence': ' '.join(fs_state['sentence_words']),
             }
