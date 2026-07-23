@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/x-icon" href="https://gesture2voice.in/static/favicon.ico">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gesture2Voice</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<style>
+:root {
+  --bg:      #0b0a09;
+  --s1:      #141210;
+  --s2:      #1c1915;
+  --s3:      #24201b;
+  --border:  rgba(255,248,235,0.07);
+  --border2: rgba(255,248,235,0.13);
+  --accent:  #e06b30;
+  --accent2: #f0934a;
+  --text:    #f8f3ec;
+  --muted:   rgba(248,243,236,0.38);
+  --muted2:  rgba(248,243,236,0.16);
+  --green:   #4ade80;
+  --red:     #f87171;
+}
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html, body { height:100%; overflow:hidden; }
+body { background:var(--bg); color:var(--text); font-family:'Outfit',sans-serif; font-size:14px; }
+
+/* NAV */
+.nav { height:48px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; border-bottom:1px solid var(--border); background:var(--s1); flex-shrink:0; }
+.logo { font-weight:700; font-size:16px; }
+.logo em { color:var(--accent); font-style:normal; }
+.nav-center { display:flex; align-items:center; gap:20px; }
+.live-badge { display:flex; align-items:center; gap:6px; font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted); letter-spacing:0.06em; }
+.live-dot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 8px var(--green); animation:blink 2s ease-in-out infinite; }
+.live-dot.off { background:var(--red); box-shadow:0 0 8px var(--red); animation:none; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.nav-stat { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--muted2); letter-spacing:0.04em; }
+.nav-stat strong { color:var(--text); }
+.nav-back { font-size:12px; color:var(--muted); text-decoration:none; padding:5px 12px; border:1px solid var(--border); border-radius:4px; transition:all 0.15s; }
+.nav-back:hover { color:var(--text); border-color:var(--border2); }
+
+/* SHELL — 3 columns */
+.shell { height:calc(100vh - 48px); display:grid; grid-template-columns:380px 1fr 260px; }
+
+/* ═══ LEFT ═══ */
+.left { border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+
+/* Camera — takes more space */
+.cam-wrap { position:relative; background:#000; flex-shrink:0; border-bottom:1px solid var(--border); }
+#camera-feed { width:100%; aspect-ratio:16/12; object-fit:cover; display:block; }
+.cam-tags { position:absolute; top:8px; left:8px; display:flex; gap:6px; }
+.ctag { background:rgba(0,0,0,0.65); border:1px solid rgba(255,255,255,0.1); backdrop-filter:blur(6px); border-radius:4px; padding:3px 8px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:500; display:flex; align-items:center; gap:4px; }
+.ctag.rec { color:var(--red); }
+.ctag.rec::before { content:''; width:5px; height:5px; border-radius:50%; background:var(--red); box-shadow:0 0 6px var(--red); }
+.ctag.gray { color:rgba(255,255,255,0.35); }
+.nohand-msg { position:absolute; bottom:8px; left:0; right:0; text-align:center; font-family:'JetBrains Mono',monospace; font-size:10px; color:rgba(255,255,255,0.3); letter-spacing:0.05em; opacity:0; transition:opacity 0.3s; pointer-events:none; }
+.nohand-msg.show { opacity:1; }
+
+/* Left info blocks */
+.lblock { padding:12px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.lblock-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:8px; }
+
+/* Confidence */
+.conf-row { display:flex; align-items:baseline; gap:5px; margin-bottom:6px; }
+.conf-big { font-family:'Bebas Neue',sans-serif; font-size:40px; line-height:1; color:var(--text); }
+.conf-unit { font-family:'JetBrains Mono',monospace; font-size:13px; color:var(--muted); }
+.conf-track { height:4px; background:var(--s3); border-radius:2px; overflow:hidden; }
+.conf-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width 0.25s; width:0%; box-shadow:0 0 8px rgba(224,107,48,0.4); }
+.conf-status { margin-top:5px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted2); }
+
+/* Stability */
+.stab-top { display:flex; justify-content:space-between; align-items:center; margin-bottom:7px; }
+.stab-count { font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--accent2); }
+.stab-dots { display:flex; gap:4px; }
+.sdot { flex:1; height:6px; border-radius:3px; background:var(--s3); transition:background 0.12s, box-shadow 0.12s; }
+.sdot.on { background:var(--accent); box-shadow:0 0 6px rgba(224,107,48,0.5); }
+.sdot.locked { background:var(--green); box-shadow:0 0 6px rgba(74,222,128,0.5); }
+.stab-hint { margin-top:5px; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted2); }
+
+/* ═══ CENTER ═══ */
+.center { display:flex; flex-direction:column; overflow:hidden; border-right:1px solid var(--border); }
+
+/* Current sign — compact */
+.word-stage { flex-shrink:0; padding:20px 28px 16px; border-bottom:1px solid var(--border); background:radial-gradient(ellipse at 50% 0%, rgba(224,107,48,0.07) 0%, transparent 65%); }
+.ws-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:6px; }
+.big-word { font-family:'Bebas Neue',sans-serif; font-size:72px; line-height:0.92; letter-spacing:0.03em; color:var(--text); min-height:68px; transition:opacity 0.12s, transform 0.12s; }
+.big-word.fade { opacity:0; transform:translateY(4px); }
+.big-word.empty { font-size:22px; color:var(--muted2); font-family:'Outfit',sans-serif; font-weight:300; letter-spacing:0; padding-top:10px; }
+.ws-bar { display:flex; align-items:center; gap:12px; margin-top:10px; }
+.ws-track { flex:1; height:4px; background:var(--s3); border-radius:2px; overflow:hidden; }
+.ws-fill { height:100%; background:linear-gradient(90deg,var(--accent),var(--accent2)); border-radius:2px; transition:width 0.25s; width:0%; }
+.ws-pct { font-family:'Bebas Neue',sans-serif; font-size:18px; letter-spacing:0.04em; color:var(--accent2); min-width:44px; text-align:right; }
+
+/* Sentence builder — gets most of the space */
+.sentence-area { flex:1; padding:16px 28px; display:flex; flex-direction:column; overflow:hidden; }
+.sa-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; flex-shrink:0; }
+.sa-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; }
+.sa-meta { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted2); }
+.sentence-box { flex:1; background:var(--s1); border:1px solid var(--border); border-radius:8px; padding:14px; overflow-y:auto; min-height:0; position:relative; }
+.chips { display:flex; flex-wrap:wrap; gap:7px; align-content:flex-start; }
+.chip { background:rgba(224,107,48,0.1); border:1px solid rgba(224,107,48,0.22); border-radius:5px; padding:7px 14px; font-size:16px; font-weight:600; color:var(--text); animation:popIn 0.22s cubic-bezier(0.34,1.56,0.64,1) both; }
+.chip:hover { background:rgba(224,107,48,0.18); }
+@keyframes popIn { from{opacity:0;transform:scale(0.75) translateY(6px)} to{opacity:1;transform:scale(1) translateY(0)} }
+.sb-placeholder { position:absolute; inset:14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; pointer-events:none; }
+.ph-icon { font-size:24px; opacity:0.15; }
+.ph-txt { font-size:12px; color:var(--muted2); text-align:center; line-height:1.5; max-width:200px; }
+
+/* Action buttons */
+.actions { display:flex; gap:8px; margin-top:12px; flex-shrink:0; }
+.btn { border:none; border-radius:6px; font-family:'Outfit',sans-serif; font-weight:600; font-size:13px; cursor:pointer; transition:all 0.15s; padding:11px 16px; }
+.btn-speak { flex:1; background:var(--accent); color:#fff; display:flex; align-items:center; justify-content:center; gap:7px; font-size:14px; }
+.btn-speak:hover:not(:disabled) { background:var(--accent2); transform:translateY(-1px); }
+.btn-speak:disabled { background:rgba(224,107,48,0.15); color:rgba(248,243,236,0.2); cursor:not-allowed; }
+.btn-sec { background:var(--s2); color:var(--muted); border:1px solid var(--border2); }
+.btn-sec:hover { background:var(--s3); color:var(--text); }
+
+/* Feature cards — compact bottom strip */
+.features-row { display:grid; grid-template-columns:1fr 1fr; gap:0; flex-shrink:0; border-top:1px solid var(--border); }
+.feat-card { padding:12px 16px; background:var(--s1); }
+.feat-card:first-child { border-right:1px solid var(--border); }
+.feat-header { display:flex; align-items:center; gap:8px; }
+.feat-icon { font-size:16px; }
+.feat-title { font-size:12px; font-weight:600; color:var(--text); }
+.feat-sub { font-size:11px; color:var(--muted2); margin-top:2px; }
+.feat-badge { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:9px; background:rgba(224,107,48,0.1); border:1px solid rgba(224,107,48,0.2); border-radius:3px; padding:2px 6px; color:var(--accent2); letter-spacing:0.06em; white-space:nowrap; }
+
+/* ═══ RIGHT ═══ */
+.right { display:flex; flex-direction:column; overflow:hidden; }
+.rblock { padding:14px 16px; border-bottom:1px solid var(--border); flex-shrink:0; }
+.rblock-label { font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-bottom:10px; }
+.voice-select { width:100%; background:var(--s2); border:1px solid var(--border2); border-radius:6px; padding:9px 12px; color:var(--text); font-size:13px; font-family:'Outfit',sans-serif; cursor:pointer; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,248,235,0.3)'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 12px center; padding-right:30px; }
+.voice-select:focus { outline:1px solid var(--accent); }
+
+/* History */
+.history-block { flex:1; overflow:hidden; display:flex; flex-direction:column; padding:14px 16px; }
+.hlist { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:5px; margin-top:0; }
+.hitem { background:var(--s2); border:1px solid var(--border); border-radius:6px; padding:9px 11px; cursor:pointer; transition:all 0.15s; }
+.hitem:hover { background:var(--s3); border-color:var(--border2); }
+.hitem-text { font-size:12px; color:rgba(248,243,236,0.7); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:3px; }
+.hitem-foot { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted2); display:flex; justify-content:space-between; }
+.hitem-replay { color:var(--accent); opacity:0; transition:opacity 0.15s; }
+.hitem:hover .hitem-replay { opacity:1; }
+.h-empty { font-size:12px; color:var(--muted2); text-align:center; padding:16px 0; }
+
+/* Emergency */
+.emg-block { padding:14px 16px; border-top:1px solid var(--border); flex-shrink:0; }
+.btn-emg { width:100%; background:rgba(248,113,113,0.09); border:1px solid rgba(248,113,113,0.22); border-radius:6px; padding:12px; color:var(--red); font-family:'Outfit',sans-serif; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; letter-spacing:0.04em; transition:all 0.15s; }
+.btn-emg:hover { background:rgba(248,113,113,0.16); border-color:rgba(248,113,113,0.38); }
+.emg-hint { font-family:'JetBrains Mono',monospace; font-size:9px; color:var(--muted2); text-align:center; margin-top:6px; letter-spacing:0.04em; }
+
+/* EMERGENCY OVERLAY */
+#emg-overlay { display:none; position:fixed; inset:0; z-index:9999; background:rgba(8,4,4,0.97); flex-direction:column; align-items:center; justify-content:center; gap:14px; }
+#emg-overlay.on { display:flex; animation:flashIn 0.35s ease; }
+@keyframes flashIn { 0%,100%{opacity:1} 40%{opacity:0.3} }
+.emg-ring { width:110px; height:110px; border-radius:50%; background:rgba(248,113,113,0.1); border:2px solid rgba(248,113,113,0.45); display:flex; align-items:center; justify-content:center; font-size:48px; animation:pulsering 1s ease-in-out infinite; }
+@keyframes pulsering { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+.emg-ttl { font-family:'Bebas Neue',sans-serif; font-size:68px; color:var(--red); letter-spacing:0.05em; }
+.emg-sub { font-size:15px; color:rgba(248,243,236,0.45); margin-bottom:6px; }
+.btn-dismiss { background:var(--red); color:#fff; border:none; padding:11px 34px; border-radius:6px; font-family:'Outfit',sans-serif; font-size:14px; font-weight:700; cursor:pointer; }
+
+/* TOAST */
+#toast { position:fixed; bottom:22px; left:50%; transform:translateX(-50%) translateY(60px); background:var(--s2); border:1px solid var(--border2); color:var(--text); padding:9px 18px; border-radius:6px; font-size:13px; font-weight:500; transition:transform 0.25s cubic-bezier(0.34,1.56,0.64,1); z-index:1000; white-space:nowrap; pointer-events:none; }
+#toast.on { transform:translateX(-50%) translateY(0); }
+::-webkit-scrollbar { width:3px; }
+::-webkit-scrollbar-thumb { background:var(--s3); border-radius:2px; }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<header class="nav">
+  <div class="logo">Gesture<em>2</em>Voice</div>
+  <div class="nav-center">
+    <div class="live-badge">
+      <div class="live-dot" id="live-dot"></div>
+      <span id="conn-label">CONNECTING</span>
+    </div>
+    <div class="nav-stat">SESSION <strong id="session-time">00:00</strong></div>
+    <div class="nav-stat">WORDS <strong id="word-count">0</strong></div>
+  </div>
+  <a href="/" class="nav-back">← Home</a>
+</header>
+
+<div class="shell">
+
+  <!-- ═══ LEFT ═══ -->
+  <div class="left">
+
+    <div class="cam-wrap">
+      <img id="camera-feed" src="/video_feed" alt="Camera">
+      <div class="cam-tags">
+        <div class="ctag rec">REC</div>
+        <div class="ctag gray">MediaPipe v2</div>
+      </div>
+      <div class="nohand-msg" id="nohand-msg">NO HAND DETECTED</div>
+    </div>
+
+    <div class="lblock">
+      <div class="lblock-label">Confidence Level</div>
+      <div class="conf-row">
+        <div class="conf-big" id="conf-big">0</div>
+        <div class="conf-unit">%</div>
+      </div>
+      <div class="conf-track"><div class="conf-fill" id="conf-fill"></div></div>
+      <div class="conf-status" id="conf-status">Waiting for gesture...</div>
+    </div>
+
+    <div class="lblock">
+      <div class="lblock-label">Stability Lock</div>
+      <div class="stab-top">
+        <span style="font-size:11px;color:var(--muted);">Hold gesture steady</span>
+        <span class="stab-count" id="stab-count">0 / 8</span>
+      </div>
+      <div class="stab-dots" id="stab-dots">
+        <div class="sdot"></div><div class="sdot"></div>
+        <div class="sdot"></div><div class="sdot"></div>
+      </div>
+      <div class="stab-hint" id="stab-hint">Waiting...</div>
+    </div>
+
+  </div>
+
+  <!-- ═══ CENTER ═══ -->
+  <div class="center">
+
+    <div class="word-stage">
+      <div class="ws-label">Current Sign</div>
+      <div class="big-word empty" id="big-word">Show your hand</div>
+      <div class="ws-bar">
+        <div class="ws-track"><div class="ws-fill" id="ws-fill"></div></div>
+        <div class="ws-pct" id="ws-pct">—</div>
+      </div>
+    </div>
+
+    <div class="sentence-area">
+      <div class="sa-header">
+        <span class="sa-label">Sentence Builder</span>
+        <span class="sa-meta" id="sa-meta">0 words</span>
+      </div>
+      <div class="sentence-box">
+        <div class="chips" id="chips"></div>
+        <div class="sb-placeholder" id="ph">
+          <div class="ph-icon">✋</div>
+          <div class="ph-txt">Hold a gesture steady for 4 frames to add a word</div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn btn-speak" id="btn-speak" onclick="speakSentence()" disabled>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          Speak Sentence
+        </button>
+        <button class="btn btn-sec" onclick="undoLast()">⌫ Undo</button>
+        <button class="btn btn-sec" onclick="clearSentence()">Clear</button>
+      </div>
+    </div>
+
+    <div class="features-row" style="grid-template-columns:1fr;">
+      <a href="/fingerspell" style="text-decoration:none;color:inherit;">
+        <div class="feat-card" style="cursor:pointer;transition:background 0.15s;" onmouseover="this.style.background='var(--s2)'" onmouseout="this.style.background=''">
+          <div class="feat-header">
+            <div class="feat-icon">🤙</div>
+            <div>
+              <div class="feat-title">Fingerspell</div>
+              <div class="feat-sub">Sign A→Z letters to build a word</div>
+            </div>
+            <span class="feat-badge" style="background:rgba(74,222,128,0.1);border-color:rgba(74,222,128,0.2);color:#4ade80;">LIVE</span>
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- ═══ RIGHT ═══ -->
+  <div class="right">
+
+    <div class="rblock">
+      <div class="rblock-label">Voice</div>
+      <select class="voice-select" onchange="setVoice(this.value)">
+        <option value="en-us">🇺🇸 American English</option>
+        <option value="en-gb">🇬🇧 British English</option>
+        <option value="en-in">🇮🇳 Indian English</option>
+        <option value="en-au">🇦🇺 Australian English</option>
+      </select>
+    </div>
+
+    <div class="history-block">
+      <div class="rblock-label">History</div>
+      <div class="hlist" id="hlist">
+        <div class="h-empty">Spoken sentences appear here</div>
+      </div>
+    </div>
+
+    <div class="emg-block">
+      <div class="rblock-label">Emergency Alert</div>
+      <button class="btn-emg" onclick="triggerEmg()">🚨 EMERGENCY ALERT</button>
+      <div class="emg-hint">Or show BOTH hands to auto-trigger</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Emergency overlay -->
+<div id="emg-overlay">
+  <div class="emg-ring">🚨</div>
+  <div class="emg-ttl">EMERGENCY</div>
+  <div class="emg-sub">"I need help immediately!" — speaking now</div>
+  <button class="btn-dismiss" onclick="dismissEmg()">Dismiss</button>
+</div>
+
+<div id="toast"></div>
+
+<script>
+let words = [], history = [], stabCount = 0, lastWord = '';
+let wordCount = 0, sessionStart = Date.now();
+
+setInterval(() => {
+  const s = Math.floor((Date.now() - sessionStart) / 1000);
+  const m = Math.floor(s / 60);
+  document.getElementById('session-time').textContent =
+    String(m).padStart(2,'0') + ':' + String(s % 60).padStart(2,'0');
+}, 1000);
+
+const socket = io();
+
+socket.on('connect', () => {
+  document.getElementById('conn-label').textContent = 'LIVE';
+  document.getElementById('live-dot').classList.remove('off');
+  showToast('Connected');
+});
+socket.on('disconnect', () => {
+  document.getElementById('conn-label').textContent = 'OFFLINE';
+  document.getElementById('live-dot').classList.add('off');
+});
+
+socket.on('prediction_update', (data) => {
+  const nohand = data.no_hand || !data.word;
+  document.getElementById('nohand-msg').classList.toggle('show', nohand);
+  if (nohand) {
+    setConf(0); setBigWord('', true); setStab(0);
+    document.getElementById('conf-status').textContent = 'No hand detected';
+    return;
+  }
+  const conf = data.confidence <= 1 ? Math.round(data.confidence * 100) : data.confidence;
+  setConf(conf);
+  setBigWord(data.word, false);
+  const status = conf >= 80 ? 'High confidence' : conf >= 50 ? 'Medium confidence' : 'Low confidence';
+  document.getElementById('conf-status').textContent = status;
+  if (data.word === lastWord) stabCount = Math.min(stabCount + 1, 4);
+
+  else stabCount = 0;
+  lastWord = data.word;
+  setStab(stabCount);
+});
+
+socket.on('word_added', (data) => {
+  words.push(data.word);
+  wordCount++;
+  document.getElementById('word-count').textContent = wordCount;
+  renderSentence();
+  showToast('+ ' + data.word);
+  stabCount = 0; setStab(0);
+});
+
+socket.on('sentence_update', (data) => {
+  if (data.sentence === '') { words = []; renderSentence(); }
+});
+
+socket.on('emergency_triggered', () => {
+  document.getElementById('emg-overlay').classList.add('on');
+});
+
+socket.on('emergency_dismissed', () => {
+  document.getElementById('emg-overlay').classList.remove('on');
+});
+
+function setConf(c) {
+  document.getElementById('conf-big').textContent = c;
+  document.getElementById('conf-fill').style.width = c + '%';
+  document.getElementById('ws-fill').style.width = c + '%';
+  document.getElementById('ws-pct').textContent = c > 0 ? c + '%' : '—';
+}
+
+let fadeTimer;
+function setBigWord(word, empty) {
+  const el = document.getElementById('big-word');
+  if (empty) { el.textContent = 'Show your hand'; el.className = 'big-word empty'; return; }
+  if (el.textContent === word && !el.classList.contains('empty')) return;
+  el.classList.add('fade');
+  clearTimeout(fadeTimer);
+  fadeTimer = setTimeout(() => { el.textContent = word; el.className = 'big-word'; }, 110);
+}
+
+function setStab(n) {
+  document.getElementById('stab-count').textContent = n + ' / 4';
+  const hint = n === 0 ? 'Waiting...' : n < 4 ? `Locking... ${n}/4` : '🔒 Locked — word added!';
+  document.getElementById('stab-hint').textContent = hint;
+  document.querySelectorAll('.sdot').forEach((d, i) => {
+    d.classList.remove('on','locked');
+    if (i < n) d.classList.add(n === 8 ? 'locked' : 'on');
+  });
+}
+
+function renderSentence() {
+  const chips = document.getElementById('chips');
+  const ph = document.getElementById('ph');
+  const btn = document.getElementById('btn-speak');
+  const meta = document.getElementById('sa-meta');
+  chips.innerHTML = '';
+  if (!words.length) {
+    ph.style.display = 'flex'; btn.disabled = true; meta.textContent = '0 words';
+  } else {
+    ph.style.display = 'none'; btn.disabled = false;
+    words.forEach(w => {
+      const c = document.createElement('div');
+      c.className = 'chip'; c.textContent = w;
+      chips.appendChild(c);
+    });
+    const secs = (words.length * 0.55).toFixed(1);
+    meta.textContent = `${words.length} word${words.length !== 1 ? 's' : ''} · ~${secs}s`;
+  }
+}
+
+function speakSentence() {
+  if (!words.length) return;
+  socket.emit('speak', {});
+  const sentence = words.join(' ');
+  history.unshift({ text: sentence, time: new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) });
+  if (history.length > 6) history.pop();
+  renderHistory();
+  showToast('Speaking...');
+}
+
+function undoLast() {
+  if (!words.length) return;
+  words.pop();
+  renderSentence();
+  showToast('Removed last word');
+}
+
+function clearSentence() {
+  socket.emit('reset');
+  words = [];
+  renderSentence();
+  showToast('Cleared');
+}
+
+function setVoice(v) { socket.emit('set_voice', { voice: v }); }
+
+function triggerEmg() {
+  socket.emit('emergency_speak');
+  document.getElementById('emg-overlay').classList.add('on');
+}
+function dismissEmg() {
+  socket.emit('dismiss_emergency');
+}
+
+function renderHistory() {
+  const list = document.getElementById('hlist');
+  if (!history.length) { list.innerHTML = '<div class="h-empty">Spoken sentences appear here</div>'; return; }
+  list.innerHTML = history.map((h, i) => `
+    <div class="hitem" onclick="replayHistory(${i})">
+      <div class="hitem-text">${h.text}</div>
+      <div class="hitem-foot"><span>${h.time}</span><span class="hitem-replay">▶ replay</span></div>
+    </div>`).join('');
+}
+
+function replayHistory(i) { socket.emit('speak_text', { text: history[i].text }); showToast('Replaying...'); }
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('on'), 2000);
+}
+
+renderSentence(); renderHistory();
+</script>
+</body>
+</html>

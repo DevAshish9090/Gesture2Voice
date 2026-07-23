@@ -1,0 +1,1254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<link rel="icon" type="image/x-icon" href="https://gesture2voice.in/static/favicon.ico"><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fingerspell — Gesture2Voice</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@800&family=Barlow+Condensed:ital,wght@0,600;0,700;0,800;1,700&family=Barlow:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  :root {
+    --bg:        #0c0b09;
+    --bg1:       #111009;
+    --bg2:       #111009;
+    --bg3:       #171511;
+    --border:    rgba(242,237,230,0.08);
+    --border2:   rgba(242,237,230,0.14);
+    --text:      #f2ede6;
+    --text2:     rgba(242,237,230,0.55);
+    --text3:     rgba(242,237,230,0.30);
+    --cyan:      oklch(0.62 0.13 42);
+    --cyan-dim:  oklch(0.62 0.13 42 / 18%);
+    --cyan-glow: oklch(0.62 0.13 42 / 40%);
+    --purple:    oklch(0.70 0.13 42);
+    --purple-dim:oklch(0.70 0.13 42 / 18%);
+    --green:     oklch(72% 0.14  142);
+    --red:       oklch(58% 0.20  25);
+    --amber:     oklch(78% 0.14  75);
+    --radius:    10px;
+    --radius-sm: 6px;
+    --radius-lg: 14px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Barlow', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── NAVBAR ─────────────────────────────────────────────── */
+  nav {
+    height: 52px;
+    min-height: 52px;
+    background: var(--bg1);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+    gap: 16px;
+    z-index: 100;
+  }
+  .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .nav-logo-mark { display: none; }
+  .nav-app-name {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800;
+    font-size: 17px;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  .nav-app-name em {
+    color: var(--cyan);
+    font-style: normal;
+  }
+  .nav-sep {
+    width: 1px;
+    height: 18px;
+    background: var(--border2);
+  }
+  .nav-feature {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--cyan);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .nav-spacer { flex: 1; }
+  .live-badge {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 4px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: livepulse 1.8s ease-in-out infinite;
+  }
+  .live-dot.active { background: var(--green); }
+  @keyframes livepulse {
+    0%,100% { opacity: 1; box-shadow: 0 0 0 0 currentColor; }
+    50% { opacity: 0.6; }
+  }
+  .nav-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text2);
+    font-size: 13px;
+    text-decoration: none;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s;
+  }
+  .nav-back:hover { background: var(--bg2); color: var(--text); }
+  .nav-back svg { opacity: 0.6; }
+
+  /* ── MAIN LAYOUT ─────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 320px 1fr 280px;
+    gap: 0;
+    overflow: hidden;
+  }
+
+  .col {
+    display: flex;
+    flex-direction: column;
+    padding: 16px;
+    gap: 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border2) transparent;
+  }
+  .col + .col { border-left: 1px solid var(--border); }
+
+  /* ── PANEL CARDS ─────────────────────────────────────────── */
+  .panel {
+    background: var(--bg1);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+  .panel-badge {
+    margin-left: auto;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+  }
+  .panel-body { padding: 14px; }
+
+  /* ── LEFT: WEBCAM ────────────────────────────────────────── */
+  .webcam-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 4/3;
+    background: var(--bg);
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+  #webcam-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scaleX(1);
+  }
+  .webcam-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  /* Corner brackets */
+  .webcam-overlay::before,
+  .webcam-overlay::after {
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    border-color: var(--cyan);
+    border-style: solid;
+    border-width: 0;
+  }
+  .webcam-overlay::before {
+    top: 10px; left: 10px;
+    border-top-width: 2px;
+    border-left-width: 2px;
+    border-radius: 3px 0 0 0;
+  }
+  .webcam-overlay::after {
+    bottom: 10px; right: 10px;
+    border-bottom-width: 2px;
+    border-right-width: 2px;
+    border-radius: 0 0 3px 0;
+  }
+  .webcam-corner-tr {
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 24px; height: 24px;
+    border-top: 2px solid var(--cyan);
+    border-right: 2px solid var(--cyan);
+    border-radius: 0 3px 0 0;
+  }
+  .webcam-corner-bl {
+    position: absolute;
+    bottom: 10px; left: 10px;
+    width: 24px; height: 24px;
+    border-bottom: 2px solid var(--cyan);
+    border-left: 2px solid var(--cyan);
+    border-radius: 0 0 0 3px;
+  }
+  .webcam-status {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: oklch(0% 0 0 / 65%);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border2);
+    border-radius: 100px;
+    padding: 3px 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text2);
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+  .webcam-no-feed {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    color: var(--text3);
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    text-align: center;
+  }
+  .webcam-no-feed svg { opacity: 0.3; }
+
+  /* ── LEFT: DETECTION ─────────────────────────────────────── */
+  .detected-letter-display {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px;
+  }
+  .big-letter {
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
+    background: var(--bg2);
+    border: 2px solid var(--border2);
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 44px;
+    font-weight: 800;
+    color: var(--text3);
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .big-letter.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: var(--cyan-dim);
+    box-shadow: 0 0 20px var(--cyan-glow);
+  }
+  .big-letter.flash {
+    animation: letterflash 0.3s ease-out;
+  }
+  @keyframes letterflash {
+    0% { transform: scale(1.15); background: var(--cyan-dim); }
+    100% { transform: scale(1); }
+  }
+  .detection-meta {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .conf-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .conf-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+  }
+  .conf-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--cyan);
+  }
+  .conf-bar-bg {
+    height: 5px;
+    background: var(--bg3);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .conf-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--purple));
+    border-radius: 100px;
+    transition: width 0.2s ease;
+    width: 0%;
+  }
+  .stability-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .stability-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    margin-right: 4px;
+  }
+  .stability-dots {
+    display: flex;
+    gap: 5px;
+  }
+  .stability-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    transition: all 0.15s;
+  }
+  .stability-dot.filled {
+    background: var(--cyan);
+    border-color: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan-glow);
+  }
+
+  /* ── CENTER: CHIPS ───────────────────────────────────────── */
+  .chips-area {
+    min-height: 52px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    align-content: flex-start;
+  }
+  .chip-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text);
+    transition: all 0.15s;
+    animation: chipin 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .chip-letter:last-child {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: var(--cyan-dim);
+  }
+  @keyframes chipin {
+    0% { transform: scale(0.6) translateY(6px); opacity: 0; }
+    100% { transform: scale(1) translateY(0); opacity: 1; }
+  }
+  .chip-word {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 11px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    animation: chipin 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transition: all 0.15s;
+    cursor: default;
+  }
+  .chip-word:hover {
+    border-color: var(--border2);
+    background: var(--bg3);
+  }
+  .chip-word .chip-idx {
+    font-size: 9px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+  }
+  .chips-empty {
+    color: var(--text3);
+    font-size: 13px;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    padding: 4px 2px;
+  }
+  .cursor-blink {
+    display: inline-block;
+    width: 3px;
+    height: 22px;
+    background: var(--cyan);
+    border-radius: 2px;
+    animation: blinkcursor 1s step-end infinite;
+    vertical-align: middle;
+  }
+  @keyframes blinkcursor { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* ── CENTER: SENTENCE ────────────────────────────────────── */
+  .sentence-display {
+    min-height: 44px;
+    padding: 10px 14px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.5;
+    word-break: break-word;
+    transition: all 0.2s;
+  }
+  .sentence-display.speaking {
+    border-color: var(--cyan);
+    box-shadow: 0 0 0 3px var(--cyan-glow);
+    animation: speakpulse 0.8s ease-in-out infinite alternate;
+  }
+  @keyframes speakpulse {
+    0% { box-shadow: 0 0 0 2px var(--cyan-glow); }
+    100% { box-shadow: 0 0 0 8px oklch(76% 0.14 192 / 8%); }
+  }
+
+  /* ── CENTER: BUTTONS ─────────────────────────────────────── */
+  .btn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+  }
+  .btn-grid-wide {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 7px;
+    margin-top: 7px;
+  }
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 14px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border2);
+    background: var(--bg2);
+    color: var(--text2);
+    font-family: 'Barlow', sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .btn:hover { background: var(--bg3); color: var(--text); border-color: var(--border2); }
+  .btn:active { transform: scale(0.97); }
+  .btn svg { opacity: 0.7; flex-shrink: 0; }
+  .btn-primary {
+    background: var(--cyan-dim);
+    border-color: oklch(76% 0.14 192 / 40%);
+    color: var(--cyan);
+    grid-column: span 2;
+  }
+  .btn-primary:hover { background: oklch(76% 0.14 192 / 25%); border-color: var(--cyan); }
+  .btn-danger { color: var(--red); }
+  .btn-danger:hover { background: oklch(65% 0.18 25 / 12%); border-color: oklch(65% 0.18 25 / 40%); color: var(--red); }
+  .btn-purple {
+    background: var(--purple-dim);
+    border-color: oklch(72% 0.14 295 / 40%);
+    color: var(--purple);
+  }
+  .btn-purple:hover { background: oklch(72% 0.14 295 / 25%); border-color: var(--purple); }
+
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    padding: 1px 5px;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    color: var(--text3);
+    margin-left: 2px;
+  }
+
+  /* ── CENTER: VOICE ───────────────────────────────────────── */
+  .voice-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .voice-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .voice-select {
+    flex: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    font-family: 'Barlow', sans-serif;
+    font-size: 13px;
+    padding: 7px 10px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+    transition: border-color 0.15s;
+  }
+  .voice-select:focus { outline: none; border-color: var(--cyan); }
+
+  /* ── RIGHT: ASL GRID ─────────────────────────────────────── */
+  .asl-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+  }
+  .asl-card {
+    aspect-ratio: 1;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    cursor: default;
+    transition: all 0.12s;
+    position: relative;
+    overflow: hidden;
+  }
+  .asl-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 4px,
+      oklch(100% 0 0 / 1.5%) 4px,
+      oklch(100% 0 0 / 1.5%) 5px
+    );
+  }
+  .asl-card.highlighted {
+    background: var(--cyan-dim);
+    border-color: var(--cyan);
+    box-shadow: 0 0 12px var(--cyan-glow);
+  }
+  .asl-card.highlighted .asl-letter { color: var(--cyan); }
+  .asl-card.special {
+    background: var(--purple-dim);
+    border-color: oklch(72% 0.14 295 / 30%);
+  }
+  .asl-card.special.highlighted {
+    border-color: var(--purple);
+    box-shadow: 0 0 12px oklch(72% 0.14 295 / 35%);
+  }
+  .asl-card.special .asl-letter { color: var(--purple); font-size: 10px; }
+  .asl-letter {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 800;
+    font-size: 20px;
+    color: var(--text2);
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+  }
+  .asl-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    color: var(--text3);
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── SPEAKING STATE ──────────────────────────────────────── */
+  .speaking-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    background: var(--cyan-dim);
+    border: 1px solid oklch(76% 0.14 192 / 40%);
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--cyan);
+    letter-spacing: 0.05em;
+  }
+  .speaking-indicator.visible { display: flex; }
+  .speaking-wave {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+  .speaking-wave span {
+    display: block;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--cyan);
+    animation: waveup 0.6s ease-in-out infinite;
+  }
+  .speaking-wave span:nth-child(1) { height: 8px; animation-delay: 0s; }
+  .speaking-wave span:nth-child(2) { height: 14px; animation-delay: 0.1s; }
+  .speaking-wave span:nth-child(3) { height: 10px; animation-delay: 0.2s; }
+  .speaking-wave span:nth-child(4) { height: 14px; animation-delay: 0.15s; }
+  .speaking-wave span:nth-child(5) { height: 8px; animation-delay: 0.05s; }
+  @keyframes waveup {
+    0%,100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+
+  /* ── SECTION HEADERS ─────────────────────────────────────── */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── SCROLLBAR ───────────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+  /* ── TOAST ───────────────────────────────────────────────── */
+  .toast-container {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
+  }
+  .toast {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 8px 16px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text2);
+    animation: toastin 0.25s ease, toastout 0.3s ease 1.8s forwards;
+    letter-spacing: 0.04em;
+  }
+  @keyframes toastin { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes toastout { to { opacity:0; transform: translateY(-6px); } }
+
+  .char-count {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    margin-left: auto;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAVBAR ── -->
+<nav>
+  <div class="nav-logo">
+    <span class="nav-app-name">Gesture<em>2</em>Voice</span>
+  </div>
+  <div class="nav-sep"></div>
+  <span class="nav-feature">Fingerspell</span>
+  <div class="live-badge">
+    <div class="live-dot" id="live-dot"></div>
+    <span id="live-text">OFFLINE</span>
+  </div>
+  <div class="nav-spacer"></div>
+  <a href="/app" class="nav-back">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+      <path d="M9 11L5 7l4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    Home
+  </a>
+</nav>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+  <!-- ────────── LEFT COLUMN ────────── -->
+  <div class="col">
+    <!-- Webcam -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="6" cy="5" r="3.5" stroke="currentColor" stroke-width="1.3" opacity="0.5"/>
+          <path d="M1 11c0-2.21 2.24-4 5-4s5 1.79 5 4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">Camera Feed</span>
+        <span class="panel-badge" id="cam-status-badge">WAITING</span>
+      </div>
+      <div class="panel-body" style="padding: 10px;">
+        <div class="webcam-wrap">
+          <img id="webcam-video" src="/fingerspell_feed" alt="camera feed" style="width:100%;height:100%;object-fit:cover;" />
+          <div class="webcam-overlay">
+            <div class="webcam-corner-tr"></div>
+            <div class="webcam-corner-bl"></div>
+          </div>
+          <div class="webcam-status" id="webcam-status-label" style="display:none;"></div>
+          <div class="webcam-no-feed" id="webcam-no-feed" style="display:none;">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+              <rect x="3" y="8" width="20" height="16" rx="3" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M23 13l6-4v14l-6-4" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+              <line x1="4" y1="4" x2="28" y2="28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <span>Camera unavailable</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detection -->
+    <div class="panel">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <circle cx="6" cy="6" r="4.5" stroke="currentColor" stroke-width="1.3" opacity="0.5"/>
+          <circle cx="6" cy="6" r="1.5" fill="currentColor" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">Detection</span>
+        <span class="speaking-indicator" id="speaking-indicator">
+          <div class="speaking-wave"><span></span><span></span><span></span><span></span><span></span></div>
+          SPEAKING
+        </span>
+      </div>
+      <div class="detected-letter-display">
+        <div class="big-letter" id="big-letter">—</div>
+        <div class="detection-meta">
+          <div>
+            <div class="conf-row">
+              <span class="conf-label">Confidence</span>
+              <span class="conf-value" id="conf-value">0%</span>
+            </div>
+            <div class="conf-bar-bg">
+              <div class="conf-bar-fill" id="conf-bar"></div>
+            </div>
+          </div>
+          <div class="stability-row">
+            <span class="stability-label">Stability</span>
+            <div class="stability-dots" id="stability-dots">
+              <div class="stability-dot"></div>
+              <div class="stability-dot"></div>
+              <div class="stability-dot"></div>
+              <div class="stability-dot"></div>
+              <div class="stability-dot"></div>
+              <div class="stability-dot"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ────────── CENTER COLUMN ────────── -->
+  <div class="col">
+
+    <!-- Word Builder -->
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1" y="3" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.3" opacity="0.5"/>
+          <line x1="4" y1="6" x2="8" y2="6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">Current Word</span>
+        <span class="char-count" id="letter-count">0 letters</span>
+      </div>
+      <div class="panel-body">
+        <div class="chips-area" id="letter-chips">
+          <span class="chips-empty">Spell a word…&nbsp;<span class="cursor-blink"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sentence -->
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <line x1="1" y1="4" x2="11" y2="4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+          <line x1="1" y1="7" x2="8" y2="7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+          <line x1="1" y1="10" x2="5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">Sentence</span>
+        <span class="char-count" id="word-count">0 words</span>
+      </div>
+      <div class="panel-body">
+        <div class="sentence-display" id="sentence-display">
+          <span style="color:var(--text3); font-size:14px; font-weight:400; font-family:'DM Mono',monospace;">Add words to build a sentence…</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1.5" y="3" width="9" height="6.5" rx="1.5" stroke="currentColor" stroke-width="1.3" opacity="0.5"/>
+          <path d="M4 6.5l1.5 1.5L8 5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">Actions</span>
+      </div>
+      <div class="panel-body" style="display:flex; flex-direction:column; gap:7px;">
+        <div class="btn-grid">
+          <button class="btn" id="btn-add-word" onclick="doAddWord()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M6.5 2v9M2 6.5h9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Add Word <span class="kbd">Space</span>
+          </button>
+          <button class="btn" id="btn-backspace" onclick="doBackspace()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M8 4L5 6.5 8 9M4 6.5h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="1" y="2.5" width="11" height="8" rx="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+            Backspace <span class="kbd">⌫</span>
+          </button>
+          <button class="btn btn-danger" id="btn-clear-word" onclick="doClearWord()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M3 3l7 7M10 3l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Clear Word
+          </button>
+          <button class="btn" id="btn-undo-word" onclick="doUndoWord()">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 5h6a3 3 0 010 6H6M2 5l3-3M2 5l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Undo Word
+          </button>
+        </div>
+        <button class="btn btn-primary" id="btn-speak" onclick="doSpeak()">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 5H2.5A1.5 1.5 0 001 6.5v1A1.5 1.5 0 002.5 9H5l3.5 3V2L5 5z" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M10.5 4.5c.8.7 1.3 1.5 1.3 2.5s-.5 1.8-1.3 2.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+          Speak Sentence <span class="kbd">↵</span>
+        </button>
+        <button class="btn btn-danger" id="btn-clear-all" onclick="doClearAll()">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none"><path d="M2 3.5h9M5 3.5V2.5h3v1M10 3.5l-.7 7a1 1 0 01-1 .9H4.7a1 1 0 01-1-.9L3 3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Clear All <span class="kbd">Esc</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Voice -->
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <path d="M6 1.5a2 2 0 012 2v3a2 2 0 01-4 0v-3a2 2 0 012-2z" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M2.5 6.5a3.5 3.5 0 007 0M6 10v1.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        <span class="panel-title">Voice Accent</span>
+      </div>
+      <div class="panel-body">
+        <div class="voice-row">
+          <span class="voice-label">Accent</span>
+          <select class="voice-select" id="voice-select">
+            <option value="en-us">🇺🇸 US English</option>
+            <option value="en-gb">🇬🇧 UK English</option>
+            <option value="en-in">🇮🇳 India English</option>
+            <option value="en-au">🇦🇺 Australian English</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ────────── RIGHT COLUMN ────────── -->
+  <div class="col">
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+          <rect x="1" y="1" width="4.2" height="4.2" rx="1" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+          <rect x="6.8" y="1" width="4.2" height="4.2" rx="1" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+          <rect x="1" y="6.8" width="4.2" height="4.2" rx="1" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+          <rect x="6.8" y="6.8" width="4.2" height="4.2" rx="1" stroke="currentColor" stroke-width="1.2" opacity="0.5"/>
+        </svg>
+        <span class="panel-title">ASL Reference</span>
+        <span class="panel-badge">A–Z + Special</span>
+      </div>
+      <div class="panel-body">
+        <div class="asl-grid" id="asl-grid"></div>
+      </div>
+    </div>
+
+    <!-- Keyboard shortcuts reference -->
+    <div class="panel" style="flex-shrink:0;">
+      <div class="panel-header">
+        <span class="panel-title">Keyboard Shortcuts</span>
+      </div>
+      <div class="panel-body" style="display:flex; flex-direction:column; gap:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--text2);">Add word</span>
+          <span class="kbd" style="font-size:11px;">Space</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--text2);">Delete letter</span>
+          <span class="kbd" style="font-size:11px;">Backspace</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--text2);">Speak sentence</span>
+          <span class="kbd" style="font-size:11px;">Enter</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--text2);">Clear all</span>
+          <span class="kbd" style="font-size:11px;">Escape</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Toast container -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let currentLetters = [];   // letters of current word being built
+let currentWords   = [];   // confirmed words in sentence
+let currentDetected = null;
+let isSpeaking = false;
+let socket = null;
+let demoMode = false;
+
+// ═══════════════════════════════════════════════════════
+// ASL GRID BUILD
+// ═══════════════════════════════════════════════════════
+const aslGrid = document.getElementById('asl-grid');
+const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+ALPHABET.forEach(letter => {
+  const card = document.createElement('div');
+  card.className = 'asl-card';
+  card.id = `asl-${letter}`;
+  card.innerHTML = `<span class="asl-letter">${letter}</span>`;
+  aslGrid.appendChild(card);
+});
+
+// Special cards: DEL and SPACE
+['DEL','SPACE'].forEach(special => {
+  const card = document.createElement('div');
+  card.className = 'asl-card special';
+  card.id = `asl-${special}`;
+  const icon = special === 'DEL'
+    ? `<svg width="14" height="10" viewBox="0 0 14 10" fill="none" style="position:relative;z-index:1"><path d="M5 1H12.5C13.05 1 13.5 1.45 13.5 2V8C13.5 8.55 13.05 9 12.5 9H5L1 5L5 1Z" stroke="currentColor" stroke-width="1.2"/><line x1="6.5" y1="3.5" x2="10" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="10" y1="3.5" x2="6.5" y2="7" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>`
+    : `<svg width="14" height="8" viewBox="0 0 14 8" fill="none" style="position:relative;z-index:1"><rect x="1" y="3.5" width="12" height="2" rx="1" fill="currentColor" opacity="0.6"/><path d="M3.5 1.5v5M10.5 1.5v5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/></svg>`;
+  card.innerHTML = `${icon}<span class="asl-letter">${special}</span>`;
+  aslGrid.appendChild(card);
+});
+
+// ═══════════════════════════════════════════════════════
+// WEBCAM
+// ═══════════════════════════════════════════════════════
+// Camera feed is served by Flask at /fingerspell_feed
+document.getElementById('cam-status-badge').textContent = 'LIVE';
+
+// ═══════════════════════════════════════════════════════
+// SOCKET.IO
+// ═══════════════════════════════════════════════════════
+function connectSocket() {
+  try {
+    socket = io({ timeout: 2000, reconnectionAttempts: 3 });
+
+    socket.on('connect', () => {
+      document.getElementById('live-dot').classList.add('active');
+      document.getElementById('live-text').textContent = 'LIVE';
+      toast('Connected to server');
+    });
+
+    socket.on('disconnect', () => {
+      document.getElementById('live-dot').classList.remove('active');
+      document.getElementById('live-text').textContent = 'OFFLINE';
+    });
+
+    socket.on('fs_prediction', (data) => {
+      handlePrediction(data);
+    });
+
+    socket.on('fs_confirmed', (data) => {
+      handleConfirmed(data);
+    });
+
+    socket.on('fs_cleared', () => {
+      clearAll(false);
+    });
+
+    socket.on('fs_speaking', () => {
+      setSpeaking(true);
+      setTimeout(() => setSpeaking(false), 3000);
+    });
+
+  } catch(e) {
+    demoMode = true;
+  }
+}
+connectSocket();
+
+// ═══════════════════════════════════════════════════════
+// SOCKET EVENT HANDLERS
+// ═══════════════════════════════════════════════════════
+function handlePrediction({ label, confidence, stable_count }) {
+  currentDetected = label;
+
+  // Big letter
+  const bigLetter = document.getElementById('big-letter');
+  if (bigLetter.textContent !== label) {
+    bigLetter.textContent = label || '—';
+    bigLetter.classList.remove('flash');
+    void bigLetter.offsetWidth;
+    bigLetter.classList.add('flash');
+  }
+  bigLetter.classList.toggle('active', !!label);
+
+  // Confidence — server sends 0–100 already
+  const pct = Math.round(confidence || 0);
+  document.getElementById('conf-value').textContent = pct + '%';
+  document.getElementById('conf-bar').style.width = pct + '%';
+
+  // Stability dots
+  const dots = document.querySelectorAll('.stability-dot');
+  const filled = Math.max(0, Math.min(6, stable_count || 0));
+  dots.forEach((d, i) => d.classList.toggle('filled', i < filled));
+
+  // Highlight ASL grid
+  document.querySelectorAll('.asl-card').forEach(c => c.classList.remove('highlighted'));
+  if (label) {
+    const target = document.getElementById(`asl-${label}`);
+    if (target) target.classList.add('highlighted');
+  }
+}
+
+function handleConfirmed({ action, letter, word, sentence }) {
+  if (action === 'letter' && letter) {
+    currentLetters.push(letter.toUpperCase());
+    renderLetterChips();
+  } else if (action === 'del') {
+    currentLetters.pop();
+    renderLetterChips();
+  } else if (action === 'space') {
+    if (word) {
+      currentWords.push(word);
+      currentLetters = [];
+      renderLetterChips();
+      renderWordChips();
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function renderLetterChips() {
+  const area = document.getElementById('letter-chips');
+  document.getElementById('letter-count').textContent = currentLetters.length + ' letter' + (currentLetters.length !== 1 ? 's' : '');
+
+  if (currentLetters.length === 0) {
+    area.innerHTML = '<span class="chips-empty">Spell a word…&nbsp;<span class="cursor-blink"></span></span>';
+    return;
+  }
+  area.innerHTML = '';
+  currentLetters.forEach((l, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip-letter';
+    chip.textContent = l;
+    area.appendChild(chip);
+  });
+}
+
+function renderWordChips() {
+  const disp = document.getElementById('sentence-display');
+  document.getElementById('word-count').textContent = currentWords.length + ' word' + (currentWords.length !== 1 ? 's' : '');
+
+  if (currentWords.length === 0) {
+    disp.innerHTML = '<span style="color:var(--text3); font-size:14px; font-weight:400; font-family:\'DM Mono\',monospace;">Add words to build a sentence…</span>';
+    return;
+  }
+  disp.innerHTML = '';
+  const wordsWrap = document.createElement('div');
+  wordsWrap.style.cssText = 'display:flex; flex-wrap:wrap; gap:6px;';
+  currentWords.forEach((w, i) => {
+    const chip = document.createElement('span');
+    chip.className = 'chip-word';
+    chip.innerHTML = `<span class="chip-idx">${i + 1}</span>${w}`;
+    wordsWrap.appendChild(chip);
+  });
+  disp.appendChild(wordsWrap);
+}
+
+function setSpeaking(on) {
+  isSpeaking = on;
+  const ind = document.getElementById('speaking-indicator');
+  const disp = document.getElementById('sentence-display');
+  ind.classList.toggle('visible', on);
+  disp.classList.toggle('speaking', on);
+}
+
+// ═══════════════════════════════════════════════════════
+// BUTTON ACTIONS
+// ═══════════════════════════════════════════════════════
+function doAddWord() {
+  if (currentLetters.length === 0) { toast('No letters to add'); return; }
+  const word = currentLetters.join('');
+  currentWords.push(word);
+  currentLetters = [];
+  renderLetterChips();
+  renderWordChips();
+  if (socket && socket.connected) socket.emit('fs_add_space');
+}
+
+function doBackspace() {
+  currentLetters.pop();
+  renderLetterChips();
+  if (socket && socket.connected) socket.emit('fs_backspace');
+}
+
+function doClearWord() {
+  currentLetters = [];
+  renderLetterChips();
+  if (socket && socket.connected) socket.emit('fs_clear_word');
+}
+
+function doUndoWord() {
+  if (currentWords.length === 0) { toast('No words to undo'); return; }
+  currentWords.pop();
+  renderWordChips();
+  if (socket && socket.connected) socket.emit('fs_undo_word');
+}
+
+function doSpeak() {
+  if (currentWords.length === 0 && currentLetters.length === 0) { toast('Nothing to speak'); return; }
+  const voice = document.getElementById('voice-select').value;
+  setSpeaking(true);
+  setTimeout(() => setSpeaking(false), 3000);
+  if (socket && socket.connected) {
+    socket.emit('fs_speak', { voice });
+  } else {
+    // Demo: use Web Speech API
+    const sentence = [...currentWords, currentLetters.join('')].filter(Boolean).join(' ');
+    if ('speechSynthesis' in window) {
+      const utt = new SpeechSynthesisUtterance(sentence);
+      utt.lang = voice;
+      utt.onend = () => setSpeaking(false);
+      speechSynthesis.speak(utt);
+    }
+  }
+}
+
+function doClearAll(emit = true) {
+  currentLetters = [];
+  currentWords = [];
+  renderLetterChips();
+  renderWordChips();
+  setSpeaking(false);
+  if (emit && socket && socket.connected) socket.emit('fs_clear_all');
+}
+function clearAll(emit) { doClearAll(emit); }
+
+// ═══════════════════════════════════════════════════════
+// KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') return;
+  if (e.code === 'Space') { e.preventDefault(); doAddWord(); }
+  else if (e.code === 'Backspace') { e.preventDefault(); doBackspace(); }
+  else if (e.code === 'Enter') { e.preventDefault(); doSpeak(); }
+  else if (e.code === 'Escape') { e.preventDefault(); doClearAll(); }
+});
+
+
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+function toast(msg) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 2200);
+}
+</script>
+</body>
+</html>
