@@ -288,7 +288,7 @@ Folder names must be uppercase and must match the control labels exactly (`SPACE
 
 ## Retraining the models
 
-### Fingerspelling — recommended path
+### Fingerspelling
 
 Use [`Fingerspell_Retrain_Custom.ipynb`](Fingerspell_Retrain_Custom.ipynb) in Google Colab. Landmark extraction across several thousand images is slow on a laptop and takes a few minutes on Colab.
 
@@ -305,12 +305,6 @@ python test_fingerspell.py
 ```
 
 This extracts landmarks, trains a quick Random Forest, prints the accuracy report, and opens a live webcam test window. Press <kbd>Q</kbd> to exit.
-
-### Fingerspelling — public dataset alternative
-
-[`Fingerspell_Train_Colab.ipynb`](Fingerspell_Train_Colab.ipynb) trains on the public [ASL Alphabet dataset](https://www.kaggle.com/datasets/grassknoted/asl-alphabet) instead of your own images, and `extract_asl_landmarks.py` does the same extraction locally.
-
-> This path writes the control labels in lowercase (`del`, `space`, `nothing`). `app.py` expects uppercase, so either change the label map in the notebook or update the `FS_ACTION_*` constants in `app.py` before using a model trained this way.
 
 ### Word gestures
 
@@ -329,10 +323,8 @@ Gesture2Voice/
 ├── collect_fingerspell_data.py       # Fingerspelling data collection
 ├── test_fingerspell.py               # Local fingerspell training and live test
 ├── extract_landmarks.py              # Webcam landmark inspection utility
-├── extract_asl_landmarks.py          # ASL Alphabet landmark extraction utility
 ├── hand_detection.py                 # Minimal MediaPipe hand-detection demo
 ├── Fingerspell_Retrain_Custom.ipynb  # Colab notebook — trains the shipped model
-├── Fingerspell_Train_Colab.ipynb     # Colab notebook — public ASL Alphabet variant
 ├── gesture_model.pkl                 # Trained word-gesture classifier
 ├── gesture_labels.pkl                # Word-gesture class labels
 ├── fingerspell_model.pkl             # Trained fingerspelling classifier
@@ -381,7 +373,8 @@ Contributions, bug reports, and feature ideas are welcome. Please read [CONTRIBU
 - [MediaPipe Hands](https://developers.google.com/mediapipe) for hand landmark detection.
 - [scikit-learn](https://scikit-learn.org/) for the Random Forest classifiers.
 - [gTTS](https://gtts.readthedocs.io/) for speech synthesis.
-- The [ASL Alphabet dataset](https://www.kaggle.com/datasets/grassknoted/asl-alphabet) on Kaggle, used in the alternative training notebook.
+
+All gesture and fingerspelling data in this project was collected first-hand via webcam. No public sign language dataset was used to train the shipped models.
 
 Built as a final-year B.Tech project at Bhagwan Parshuram Institute of Technology, New Delhi.
 
